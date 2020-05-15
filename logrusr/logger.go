@@ -51,15 +51,10 @@ func (this LogrusInfoLogr) Info(msg string, kvs ...interface{}) {
 	logger := this.logger.WithFields(logrus.Fields{
 		"request": &logrus.Fields{
 			"name": this.name,
-			"kvs":  kvs,
-			"this_kvs": this.kvs,
+			"kvs":  createMap(this.kvs, kvs),
 		},
 	})
-
-	if logger != nil {
-		logger.Info(msg)
-	}
-
+	logger.Info(msg)
 }
 
 func (this LogrusInfoLogr) Enabled() bool {
@@ -71,20 +66,14 @@ type LogrusLogr struct {
 }
 
 func (this LogrusLogr) Error(err error, msg string, kvs ...interface{}) {
-
 	logger := this.logger.WithFields(logrus.Fields{
 		"request": &logrus.Fields{
 			"error": err,
 			"name":  this.name,
-			"kvs":   kvs,
-			"this_kvs": this.kvs,
+			"kvs":   createMap(this.kvs, kvs),
 		},
 	})
-
-	if logger != nil {
-		logger.Error(msg)
-	}
-
+	logger.Error(msg)
 }
 
 func (this LogrusLogr) V(level int) logr.InfoLogger {
@@ -93,26 +82,15 @@ func (this LogrusLogr) V(level int) logr.InfoLogger {
 			return this.WithValues("v", level)
 		}
 	}
-
 	return &LogrusInfoLogr{enabled: false}
 }
 
 func (this LogrusLogr) WithValues(kvs ...interface{}) logr.Logger {
-	newKVs := make(map[string]interface{})
-
-	for k, v := range this.kvs {
-		newKVs[k] = v
-	}
-
-	for i := 0; i < len(kvs); i += 2 {
-		newKVs[kvs[i].(string)] = kvs[i+1]
-	}
-
 	return &LogrusLogr{
 		LogrusInfoLogr: LogrusInfoLogr{
 			enabled: this.enabled,
 			name:    this.name,
-			kvs:     newKVs,
+			kvs:     createMap(this.kvs, kvs),
 			logger:  this.logger,
 		},
 	}
@@ -140,4 +118,17 @@ func New(name string, logger logrus.Logger) logr.Logger {
 			logger:  logger,
 		},
 	}
+}
+
+func createMap(kvs map[string]interface{}, extra []interface{}) map[string]interface{} {
+	ret := make(map[string]interface{})
+
+	for k, v := range kvs {
+		ret[k] = v
+	}
+
+	for i := 0; i < len(extra); i += 2 {
+		ret[extra[i].(string)] = extra[i+1]
+	}
+	return ret
 }

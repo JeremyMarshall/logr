@@ -1,86 +1,129 @@
 package logrusr
 
 import (
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	// . "github.com/activeshadow/logr/logrusr"
+
 	"errors"
+	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
-	"testing"
+	logrus_test "github.com/sirupsen/logrus/hooks/test"
 	"time"
 )
 
-func TestInfoLogger(t *testing.T) {
-	mock, _ := time.Parse("2006-01-02", "2015-12-15")
-	l := logrus.New()
+var _ = Describe("Logger", func() {
+	var (
+		logger logr.Logger
+		l      *logrus.Logger
+		hook   *logrus_test.Hook
+		mock   time.Time
+	)
 
-	logger := New("foo", *l)
-	logger.(*LogrusLogr).clock = &clock{mock: mock}
-	logger.Info("test log", "hello", "world")
-}
+	BeforeEach(func() {
+		mock, _ = time.Parse("2006-01-02", "2015-12-15")
+		l, hook = logrus_test.NewNullLogger()
 
-func TestErrLogger(t *testing.T) {
-	mock, _ := time.Parse("2006-01-02", "2015-12-15")
-	err := errors.New("BOOM SUCKA!")
-	l := logrus.New()
+		logger = New("foo", *l)
+		logger.(*LogrusLogr).clock = &clock{mock: mock}
+	})
 
-	logger := New("bar", *l)
-	logger.(*LogrusLogr).clock = &clock{mock: mock}
-	logger.Error(err, "test error log", "hello", "world")
-}
+	Describe("Logger Calls", func() {
+		Context("For Info", func() {
+			It("when standard", func() {
+				logger.Info("test log", "hello", "world")
 
-func TestNonVerboseLogger(t *testing.T) {
-	mock, _ := time.Parse("2006-01-02", "2015-12-15")
-	l := logrus.New()
+				Expect(hook.LastEntry().Message).To(Equal("test log"))
+				Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
 
-	logger := New("sucka", *l)
-	logger.(*LogrusLogr).clock = &clock{mock: mock}
-	logger.V(1).Info("test verbose log", "hello", "crazy world")
-}
+				r, ok := hook.LastEntry().Data["request"].(*logrus.Fields)
+				Expect(ok).To(BeTrue())
 
-func TestVerboseLogger(t *testing.T) {
-	mock, _ := time.Parse("2006-01-02", "2015-12-15")
+				Expect((*r)["name"]).To(Equal("foo"))
+				Expect((*r)["kvs"]).To(Equal(map[string]interface{}{"hello": "world"}))
+			})
+			It("when named", func() {
+				namedLogger := logger.WithName("bar")
+				namedLogger.(*LogrusLogr).clock = &clock{mock: mock}
+				namedLogger.Info("test log", "hello", "world")
 
-	SetVerbosity(1)
+				Expect(hook.LastEntry().Message).To(Equal("test log"))
+				Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
 
-	l := logrus.New()
+				r, ok := hook.LastEntry().Data["request"].(*logrus.Fields)
+				Expect(ok).To(BeTrue())
 
-	logger := New("sucka", *l)
+				Expect((*r)["name"]).To(Equal("foo.bar"))
+				Expect((*r)["kvs"]).To(Equal(map[string]interface{}{"hello": "world"}))
+			})
+			It("when has values", func() {
+				valuesLogger := logger.WithValues("goodbye", "crazy world")
+				valuesLogger.(*LogrusLogr).clock = &clock{mock: mock}
+				valuesLogger.Info("test log", "hello", "world")
 
-	vLogger := logger.V(1)
-	vLogger.(*LogrusLogr).clock = &clock{mock: mock}
-	vLogger.Info("test verbose log", "hello", "crazy world")
-}
+				Expect(hook.LastEntry().Message).To(Equal("test log"))
+				Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
 
-func TestNamedLogger(t *testing.T) {
-	mock, _ := time.Parse("2006-01-02", "2015-12-15")
+				r, ok := hook.LastEntry().Data["request"].(*logrus.Fields)
+				Expect(ok).To(BeTrue())
 
-	l := logrus.New()
+				Expect((*r)["name"]).To(Equal("foo"))
+				Expect((*r)["kvs"]).To(Equal(map[string]interface{}{"goodbye": "crazy world", "hello": "world"}))
+			})
+		})
 
-	logger := New("foo", *l)
-	namedLogger := logger.WithName("bar")
-	namedLogger.(*LogrusLogr).clock = &clock{mock: mock}
-	namedLogger.Info("test log", "hello", "world")
-}
+		Context("For Err", func() {
+			It("when standard", func() {
+				err := errors.New("BOOM SUCKA!")
 
-func TestValuesLogger(t *testing.T) {
-	mock, _ := time.Parse("2006-01-02", "2015-12-15")
+				logger.Error(err, "test error log", "hello", "world")
 
-	l := logrus.New()
+				Expect(hook.LastEntry().Message).To(Equal("test error log"))
+				Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 
-	logger := New("foo", *l)
-	valuesLogger := logger.WithValues("goodbye", "crazy world")
-	valuesLogger.(*LogrusLogr).clock = &clock{mock: mock}
-	valuesLogger.Info("test log", "hello", "world")
-}
+				r, ok := hook.LastEntry().Data["request"].(*logrus.Fields)
+				Expect(ok).To(BeTrue())
 
-func TestLimitedLogger(t *testing.T) {
-	mock, _ := time.Parse("2006-01-02", "2015-12-15")
+				Expect((*r)["name"]).To(Equal("foo"))
+				Expect((*r)["kvs"]).To(Equal(map[string]interface{}{"hello": "world"}))
+			})
+		})
 
-	SetVerbosity(1)
-	LimitToLoggers("bar")
+		Context("For Supressing", func() {
+			It("when not verbose", func() {
+				hook.Reset()
+				logger.V(1).Info("test verbose log", "hello", "crazy world")
 
-	l := logrus.New()
+				Expect(hook.LastEntry()).To(BeNil())
+			})
+			It("when verbose", func() {
+				SetVerbosity(1)
 
-	logger := New("foo", *l)
-	vLogger := logger.V(1)
-	vLogger.(*LogrusInfoLogr).clock = &clock{mock: mock}
-	vLogger.Info("test verbose log", "hello", "crazy world")
-}
+				vLogger := logger.V(1)
+				vLogger.(*LogrusLogr).clock = &clock{mock: mock}
+				vLogger.Info("test verbose log", "hello", "crazy world")
+
+				Expect(hook.LastEntry().Message).To(Equal("test verbose log"))
+				Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
+
+				r, ok := hook.LastEntry().Data["request"].(*logrus.Fields)
+				Expect(ok).To(BeTrue())
+
+				Expect((*r)["name"]).To(Equal("foo"))
+				Expect((*r)["kvs"]).To(Equal(map[string]interface{}{"v": 1, "hello": "crazy world"}))
+			})
+			It("when limited", func() {
+				hook.Reset()
+				SetVerbosity(1)
+				LimitToLoggers("bar")
+
+				vLogger := logger.V(1)
+				vLogger.(*LogrusInfoLogr).clock = &clock{mock: mock}
+				vLogger.Info("test verbose log", "hello", "crazy world")
+
+				Expect(hook.LastEntry()).To(BeNil())
+			})
+		})
+	})
+})

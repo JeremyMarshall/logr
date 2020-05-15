@@ -5,7 +5,7 @@ Some different implementations of the
 
 | Implementation | Notes |
 |---|---|
-|[stdlogr](stdlogr)| A *standard* implementation () using `fmt` that prints logs to `STDOUT` in [logfmt](http://godoc.org/github.com/kr/logfmt)|
+|[stdlogr](stdlogr)| A *standard* implementation using `fmt` that prints logs to `STDOUT` in [logfmt](http://godoc.org/github.com/kr/logfmt)|
 |[logrusr](logrusr)|Output using [logrus](https://github.com/sirupsen/logrus)
 
 ## stdlogr
