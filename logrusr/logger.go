@@ -5,7 +5,7 @@ import (
 	"github.com/activeshadow/logr/util"
 	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
-	"time"
+	// "time"
 )
 
 var (
@@ -21,26 +21,11 @@ func LimitToLoggers(names ...string) {
 	loggers = append(loggers, names...)
 }
 
-type clock struct {
-	mock time.Time // set in tests
-}
-
-func (this *clock) now() time.Time {
-	if this == nil { // normal operations
-		return time.Now()
-	}
-
-	return this.mock // testing only
-}
-
 type LogrusInfoLogr struct {
 	enabled bool
 	name    string
 	kvs     map[string]interface{}
 	logger  logrus.Logger
-
-	// Normally nil, set by test code only.
-	clock *clock
 }
 
 func (this LogrusInfoLogr) Info(msg string, kvs ...interface{}) {
